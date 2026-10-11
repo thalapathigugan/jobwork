@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../primitives/Icon';
 import { UiLink } from '../primitives/Link';
-import { activeHref } from './paths';
+import { activeHref, isActivePath } from './paths';
 import { TabBar, type TabItem, type TabPrimaryAction } from './TabBar';
 
 /**
@@ -33,15 +33,38 @@ export interface NavItem {
   badge?: number | undefined;
 }
 
+/**
+ * Several destinations under one heading. Above `md` the heading is a disclosure button
+ * that opens the list beneath it; below `md` the open navigation shows every group's
+ * links under its heading, so nothing needs a second tap on a phone. The heading carries
+ * the sum of its items' badges, so collapsed work is still announced.
+ */
+export interface NavGroup {
+  label: string;
+  items: readonly NavItem[];
+}
+
+export type NavEntry = NavItem | NavGroup;
+
+export function isNavGroup(entry: NavEntry): entry is NavGroup {
+  return 'items' in entry;
+}
+
+function flattenNavigation(navigation: readonly NavEntry[]): NavItem[] {
+  return navigation.flatMap((entry) => (isNavGroup(entry) ? [...entry.items] : [entry]));
+}
+
 export interface AppShellProps {
   productName: string;
   /** Distinguishes the operations app from the portal at a glance. */
   variant?: 'portal' | 'operations' | undefined;
-  navigation: readonly NavItem[];
+  navigation: readonly NavEntry[];
   /** Route path used to mark the active item; compared by prefix. */
   currentPath?: string | undefined;
   environmentLabel?: string | null | undefined;
   accountSlot?: ReactNode | undefined;
+  /** The signed-in person's own settings, as an icon beside the bell at every width. */
+  account?: { href: string; label: string } | undefined;
   /** Phone tab bar (F-MX.2). Omit for apps that are desktop-first, e.g. operations. */
   tabs?: readonly TabItem[] | undefined;
   /** The raised centre action of the tab bar. */
@@ -58,13 +81,14 @@ export function AppShell({
   currentPath,
   environmentLabel,
   accountSlot,
+  account,
   tabs,
   primaryAction,
   notifications,
   children,
 }: AppShellProps): React.JSX.Element {
   const [navOpen, setNavOpen] = useState(false);
-  const activeNav = activeHref(currentPath, navigation.map((item) => item.href));
+  const activeNav = activeHref(currentPath, flattenNavigation(navigation).map((item) => item.href));
   const bellCount = notifications?.count ?? 0;
 
   return (
@@ -145,46 +169,19 @@ export function AppShell({
             aria-label="Primary"
             className={navOpen ? 'jw-nav jw-nav-open' : 'jw-nav'}
           >
-            {navigation.map((item) => {
-              const active = item.href === activeNav;
-              return (
-                <UiLink
-                  key={item.href}
-                  href={item.href}
-                  {...(active ? { 'aria-current': 'page' as const } : {})}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    minHeight: 'var(--control-height)',
-                    padding: '0 var(--space-3)',
-                    borderRadius: 'var(--radius-sm)',
-                    font: active ? 'var(--text-body-strong)' : 'var(--text-body)',
-                    color: active ? 'var(--color-action)' : 'var(--color-text)',
-                    background: active ? 'var(--status-progress-bg)' : 'transparent',
-                    textDecoration: 'none',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {item.label}
-                  {item.badge && item.badge > 0 ? (
-                    <span
-                      style={{
-                        marginLeft: 'var(--space-2)',
-                        padding: '0 var(--space-2)',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'var(--status-attention-bg)',
-                        border: '1px solid var(--status-attention-border)',
-                        color: 'var(--status-attention-fg)',
-                        font: 'var(--text-caption)',
-                      }}
-                    >
-                      {item.badge}
-                      <span className="jw-visually-hidden"> waiting</span>
-                    </span>
-                  ) : null}
-                </UiLink>
-              );
-            })}
+            {navigation.map((entry, index) =>
+              isNavGroup(entry) ? (
+                <NavGroupMenu
+                  key={entry.label}
+                  group={entry}
+                  activeHref={activeNav}
+                  alignEnd={index >= navigation.length - 2}
+                  currentPath={currentPath}
+                />
+              ) : (
+                <NavLink key={entry.href} item={entry} active={entry.href === activeNav} />
+              ),
+            )}
           </nav>
 
           <div className="jw-header-tools">
@@ -218,6 +215,17 @@ export function AppShell({
               <Icon name={navOpen ? 'close' : 'menu'} size={1.4} />
             </button>
 
+            {account ? (
+              <UiLink
+                href={account.href}
+                className="jw-icon-button"
+                aria-label={account.label}
+                {...(isActivePath(currentPath, account.href) ? { 'aria-current': 'page' as const } : {})}
+              >
+                <Icon name="profile" size={1.4} />
+              </UiLink>
+            ) : null}
+
             {accountSlot ? <div className="jw-account-slot">{accountSlot}</div> : null}
           </div>
         </div>
@@ -228,6 +236,117 @@ export function AppShell({
       </main>
 
       {tabs ? <TabBar items={tabs} currentPath={currentPath} primary={primaryAction} /> : null}
+    </div>
+  );
+}
+
+function NavBadge({ count }: { count: number | undefined }): React.JSX.Element | null {
+  if (!count || count <= 0) return null;
+  return (
+    <span className="jw-nav-badge">
+      {count}
+      <span className="jw-visually-hidden"> waiting</span>
+    </span>
+  );
+}
+
+function NavLink({ item, active }: { item: NavItem; active: boolean }): React.JSX.Element {
+  return (
+    <UiLink
+      href={item.href}
+      className="jw-nav-link"
+      {...(active ? { 'aria-current': 'page' as const } : {})}
+    >
+      {item.label}
+      <NavBadge count={item.badge} />
+    </UiLink>
+  );
+}
+
+/**
+ * A disclosure (button + list), not an ARIA menu: the items are ordinary links, reached
+ * with Tab, and the list closes on Escape, on a click elsewhere, and on navigation.
+ */
+function NavGroupMenu({
+  group,
+  activeHref: activeNav,
+  alignEnd,
+  currentPath,
+}: {
+  group: NavGroup;
+  activeHref: string | undefined;
+  alignEnd: boolean;
+  currentPath: string | undefined;
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const containsActive = group.items.some((item) => item.href === activeNav);
+  const total = group.items.reduce((sum, item) => sum + (item.badge ?? 0), 0);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [currentPath]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent): void => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={containsActive ? 'jw-nav-group jw-nav-group-active' : 'jw-nav-group'}
+      onBlur={(event) => {
+        if (!rootRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
+      <button
+        ref={buttonRef}
+        type="button"
+        className="jw-nav-link jw-nav-group-button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {group.label}
+        <NavBadge count={total} />
+        <span className="jw-nav-chevron" aria-hidden="true">
+          <Icon name="chevron" size={0.9} />
+        </span>
+      </button>
+      <span className="jw-nav-group-label" aria-hidden="true">
+        {group.label}
+      </span>
+      <div
+        id={panelId}
+        className={[
+          'jw-nav-panel',
+          open ? 'jw-nav-panel-open' : '',
+          alignEnd ? 'jw-nav-panel-end' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {group.items.map((item) => (
+          <NavLink key={item.href} item={item} active={item.href === activeNav} />
+        ))}
+      </div>
     </div>
   );
 }

@@ -127,6 +127,63 @@ describe('AppShell with tabs', () => {
   });
 });
 
+describe('AppShell navigation groups', () => {
+  const navigation = [
+    { href: '/', label: 'Home' },
+    {
+      label: 'Sales',
+      items: [
+        { href: '/intake', label: 'Intake', badge: 2 },
+        { href: '/sales-orders', label: 'Orders', badge: 1 },
+      ],
+    },
+  ];
+
+  function renderShell(currentPath = '/intake'): void {
+    render(
+      <AppShell
+        productName="JobWork"
+        variant="operations"
+        navigation={navigation}
+        currentPath={currentPath}
+        account={{ href: '/account/security', label: 'Account' }}
+      >
+        <p>content</p>
+      </AppShell>,
+    );
+  }
+
+  it('discloses a group with a button that speaks its badge total', () => {
+    renderShell();
+    const button = screen.getByRole('button', { name: /Sales\s*3\s*waiting/ });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    const panel = document.getElementById(button.getAttribute('aria-controls')!);
+    expect(panel).toHaveClass('jw-nav-panel-open');
+  });
+
+  it('marks the current page inside a group and the group itself', () => {
+    renderShell();
+    expect(screen.getByRole('link', { name: /Intake/ })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: /Sales/ }).parentElement).toHaveClass('jw-nav-group-active');
+  });
+
+  it('closes on Escape and returns focus to the group button', () => {
+    renderShell();
+    const button = screen.getByRole('button', { name: /Sales/ });
+    fireEvent.click(button);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).toHaveFocus();
+  });
+
+  it('puts the account behind a named icon link', () => {
+    renderShell('/account/security');
+    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('aria-current', 'page');
+  });
+});
+
 describe('Page back header', () => {
   it('keeps the h1 and names the back chevron', () => {
     render(
