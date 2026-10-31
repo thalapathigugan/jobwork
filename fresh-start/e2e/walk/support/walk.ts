@@ -188,3 +188,11 @@ export const section = (page: Page, heading: string | RegExp): Locator =>
 export const FIXTURES = join(__dirname, '..', 'fixtures');
 export const daysFromNow = (days: number): string => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 export { OPERATIONS, PORTAL };
+
+/** Picks the first option of a select whose text matches. */
+export async function choose(select: Locator, option: RegExp): Promise<string> {
+  await expect(select.locator('option').filter({ hasText: option }).first()).toBeAttached();
+  const label = (await select.locator('option').allInnerTexts()).find((t) => option.test(t))!;
+  await select.selectOption({ label });
+  return label;
+}

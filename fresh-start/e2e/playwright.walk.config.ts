@@ -44,7 +44,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'walk-setup', testDir: '.', testMatch: /(tests\/world\.setup|walk\/staff\.setup)\.ts$/, use: { video: 'off' } },
-    { name: 'walk', dependencies: reuse ? [] : ['walk-setup'], testMatch: /\d\d-.*\.spec\.ts$/ },
+    { name: 'walk', dependencies: reuse ? [] : ['walk-setup'], testMatch: /(\d\d|zz)-.*\.spec\.ts$/ },
   ],
   webServer: [
     {
