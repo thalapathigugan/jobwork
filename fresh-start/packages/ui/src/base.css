@@ -1217,6 +1217,15 @@ code,
   margin-top: var(--space-1);
 }
 
+/* The sender's own messages and internal notes sit on a tint, where the plain muted
+   colour misses AA contrast (FW W6); the on-tint muted token keeps the caption readable. */
+.jw-message-mine .jw-message-meta,
+.jw-message-mine .jw-message-lineage,
+.jw-message-internal .jw-message-meta,
+.jw-message-internal .jw-message-lineage {
+  color: var(--color-text-muted-on-tint);
+}
+
 .jw-message-body {
   margin-top: var(--space-2);
   white-space: pre-wrap;
