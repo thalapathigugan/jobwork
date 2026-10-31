@@ -240,7 +240,8 @@ function approvalTarget(row: ApprovalRequestRow): { href: string; title: string 
     case 'award':
       return { href: `/awards/${context.awardId ?? row.subjectId}`, title: context.label ?? `Award on ${context.rfqReference ?? 'round'}` };
     case 'cost_sheet':
-      return { href: `/cost-sheets/${context.costSheetId ?? row.subjectId}`, title: context.label ?? 'Cost sheet' };
+      // The award page holds its cost sheet; operations has no cost-sheet page (FW W8: 404).
+      return { href: context.awardId ? `/awards/${context.awardId}` : '/approvals', title: context.label ?? 'Cost sheet' };
     case 'quote':
       return { href: `/quotes/${context.quoteId ?? row.subjectId}`, title: context.label ?? 'Customer quotation' };
     case 'change':

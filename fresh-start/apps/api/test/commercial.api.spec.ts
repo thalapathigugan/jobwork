@@ -418,6 +418,11 @@ describe('Evaluation, award, cost sheet, customer quote (IN-07)', () => {
     const request = await finance.get(`/api/v1/approvals/${requestId}`);
     expect(request.body['requiredRoles']).toEqual(['jobwork_finance']);
     expect((request.body['context'] as Record<string, unknown>)['exception']).toBe('negative_margin');
+    // FW W8: the waiting row links to the award page that holds the cost sheet (there is
+    // no cost-sheet page in operations).
+    const listed = (await finance.get('/api/v1/approvals?status=pending')).body['approvals'] as Array<Record<string, unknown>>;
+    const row = listed.find((r) => r['approvalRequestId'] === requestId);
+    expect(row?.['href']).toMatch(/^\/awards\/[0-9a-f-]{36}$/);
 
     // A quote cannot be drafted from an unapproved cost sheet.
     const premature = await sales.post('/api/v1/quotes', {
