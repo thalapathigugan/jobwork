@@ -1299,3 +1299,10 @@ code,
   font: var(--text-caption);
   color: var(--color-text-muted);
 }
+
+/* Unread notifications sit on the progress tint, where the plain muted colour misses AA
+   contrast (FW W13); the on-tint muted token keeps body and time readable. */
+.jw-notification-unread .jw-notification-body,
+.jw-notification-unread .jw-notification-time {
+  color: var(--color-text-muted-on-tint);
+}
