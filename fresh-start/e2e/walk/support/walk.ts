@@ -177,8 +177,13 @@ export const visible = (scope: Page | Locator, text: string | RegExp): Locator =
 export async function command(page: Page, name: string | RegExp, scope: Page | Locator = page): Promise<void> {
   const b = button(scope, name);
   await expect(b).toBeEnabled();
+  // The load state is long reached, so wait for the command's own request and for the
+  // button to stop working before reading alerts; otherwise a refusal is missed.
+  const answered = page.waitForResponse((r) => r.request().method() !== 'GET' && r.url().includes('/api/v1/'), { timeout: 15_000 }).catch(() => null);
   await b.click();
-  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
+  await answered;
+  await expect(page.locator('[role="status"]').filter({ hasText: /^Working$/ })).toHaveCount(0, { timeout: 30_000 });
+  await page.waitForTimeout(250);
   const alerts = (await errorAlerts(page).allInnerTexts()).filter((t) => t.trim() !== '');
   expect(alerts, `"${String(name)}" failed`).toEqual([]);
 }
