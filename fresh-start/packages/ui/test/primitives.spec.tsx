@@ -38,6 +38,20 @@ describe('command success announcement (F-12.4)', () => {
 });
 
 describe('CommandButton (doc 21 §6, DS-13)', () => {
+  it('shows a screen\'s own check without a fault code, and a real failure with one (FW W12)', async () => {
+    render(
+      <>
+        <CommandButton onCommand={() => { throw new Error('Say why — the supplier reads this.'); }}>Return</CommandButton>
+        <CommandButton onCommand={() => { throw new TypeError('x is undefined'); }}>Crash</CommandButton>
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Return' }));
+    const check = await screen.findByText(/Say why/);
+    expect(check.closest('[role="alert"]')!.textContent).not.toMatch(/UNEXPECTED/);
+    fireEvent.click(screen.getByRole('button', { name: 'Crash' }));
+    expect(await screen.findByText('UNEXPECTED')).toBeTruthy();
+  });
+
   it('runs the command once however many times it is clicked mid-flight', async () => {
     let release: (() => void) | undefined;
     const command = vi.fn(
