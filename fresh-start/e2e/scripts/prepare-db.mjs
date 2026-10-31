@@ -40,6 +40,14 @@ const PEOPLE = [
   { email: 'sales2@jobwork.test', org: 'internal', roles: ['jobwork_sales'] },
   { email: 'finance@jobwork.test', org: 'internal', roles: ['jobwork_finance'] },
   { email: 'support@jobwork.test', org: 'internal', roles: ['jobwork_support'] },
+  // FW.0: the full portal walk also needs reviewer separation, a second finance member,
+  // quality, logistics and administration.
+  { email: 'sourcing2@jobwork.test', org: 'internal', roles: ['jobwork_sourcing'] },
+  { email: 'finance2@jobwork.test', org: 'internal', roles: ['jobwork_finance'] },
+  { email: 'quality@jobwork.test', org: 'internal', roles: ['jobwork_quality'] },
+  { email: 'quality2@jobwork.test', org: 'internal', roles: ['jobwork_quality'] },
+  { email: 'logistics@jobwork.test', org: 'internal', roles: ['jobwork_logistics'] },
+  { email: 'admin@jobwork.test', org: 'internal', roles: ['platform_admin', 'security_admin', 'auditor'] },
 ];
 
 const server = new pg.Client({ connectionString: admin });
