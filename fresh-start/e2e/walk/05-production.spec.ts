@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { axe, button, command, daysFromNow, expect, field, FIXTURES, OPERATIONS, open, PORTAL, recall, remember, signInAs, test, visible } from './support/walk';
+import { axe, expand, button, command, daysFromNow, expect, field, FIXTURES, OPERATIONS, open, PORTAL, recall, remember, signInAs, test, visible } from './support/walk';
 
 /** FW.5 Purchase order to production: PO issue and acknowledgment, baseline, transmittal, work package, quality plan, checkpoints. */
 test.describe.configure({ mode: 'serial' });
@@ -96,7 +96,7 @@ test('supplier · A starts a checkpoint, sends evidence and reports a delay', as
   await upload.setInputFiles(join(FIXTURES, (await upload.getAttribute('accept'))?.includes('pdf') ? 'drawing.pdf' : 'photo.png'));
   await expect(button(page, 'Submit for verification')).toBeEnabled({ timeout: 60_000 });
   await command(page, 'Submit for verification');
-  await page.getByText('Report a delay').first().click();
+  await expand(page, 'Report a delay');
   await field(page, 'New forecast date').fill(daysFromNow(25));
   await field(page, 'What happened').fill('Spindle bearing replacement on the VMC.');
   await command(page, 'Report delay');

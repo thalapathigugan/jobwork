@@ -203,3 +203,10 @@ export async function choose(select: Locator, option: RegExp): Promise<string> {
   await select.selectOption({ label });
   return label;
 }
+
+/** Opens a <details> section by its summary text. */
+export async function expand(page: Page, summary: string): Promise<Locator> {
+  const details = page.locator('details').filter({ has: page.locator('summary').filter({ hasText: summary }) }).filter({ visible: true }).first();
+  if ((await details.getAttribute('open')) === null) await details.locator('summary').first().click();
+  return details;
+}

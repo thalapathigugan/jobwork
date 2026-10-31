@@ -101,7 +101,7 @@ export async function openRound(enquiryId: string): Promise<{ rfqId: string; ite
   const sourcing = await as('sourcing');
   const rfqId = ok(await sourcing.post('/rfqs', { enquiryId, deadlineAt: new Date(Date.now() + 7 * 86_400_000).toISOString(), lateBidPolicy: 'reject', instructions: 'Quote per piece at 100 off.' }), 201, 'rfq')['rfqId'] as string;
   const candidates = ok(await sourcing.get(`/rfqs/match?enquiryId=${enquiryId}`), 200, 'match')['candidates'] as Body[];
-  for (const c of candidates.filter((x) => x['eligible'])) ok(await sourcing.post(`/rfqs/${rfqId}/invitations`, { supplierProfileId: c['supplierProfileId'] }), 201, 'invite');
+  for (const c of candidates.filter((x) => x['eligible'] && /Anand|Balaji/.test(String(x['displayName'])))) ok(await sourcing.post(`/rfqs/${rfqId}/invitations`, { supplierProfileId: c['supplierProfileId'] }), 201, 'invite');
   ok(await sourcing.post(`/rfqs/${rfqId}/release`, { expectedVersion: await rfqVersion(rfqId) }), 201, 'release');
   const itemId = ((ok(await (await as('supplierA')).get(`/supplier/rfqs/${rfqId}`), 200, 'supplier rfq')['items'] as Body[])[0]!['rfqItemId']) as string;
   return { rfqId, itemId };
@@ -337,7 +337,7 @@ export async function inspected(workPackageId: string, stage: 'fai' | 'final', l
 }
 
 /** Milestones verified or waived, FAI and final inspections passed, the lots quality released. */
-export async function released(deal: Deal, workPackageId: string, lots: Array<{ lot: string; quantity: string }>): Promise<void> {
+export async function released(deal: Deal, workPackageId: string, lots: Array<{ lot: string; quantity: string }>, opts: { release?: boolean } = {}): Promise<void> {
   const gauge = await calibratedGauge();
   for (const [n, { lot }] of lots.entries()) {
     if (n === 0) await inspected(workPackageId, 'fai', lot, gauge);
@@ -351,6 +351,7 @@ export async function released(deal: Deal, workPackageId: string, lots: Array<{ 
     if (m['status'] === 'evidence_submitted') ok(await q.post(`/milestones/${m['milestoneId']}/verify`, { expectedVersion: m['aggregateVersion'], decision: 'verified' }), 201, 'verify milestone');
     else ok(await q.post(`/milestones/${m['milestoneId']}/waive`, { expectedVersion: m['aggregateVersion'], reason: 'Covered by the final inspection on record.' }), 201, 'waive milestone');
   }
+  if (opts.release === false) return;
   for (const { lot, quantity } of lots) ok(await q.post('/quality-releases', { workPackageId, quantity, lots: [lot], serials: [] }), 201, `release ${lot}`);
 }
 
