@@ -954,7 +954,14 @@ export class SupplierRepository {
         input.createdBy,
       ],
     );
-    return mapMachine(res.rows[0]);
+    const joined = await tx.query(
+      `SELECT m.*, c.code, c.kind, c.label AS capability_label
+         FROM supplier.machine m
+         LEFT JOIN supplier.capability c ON c.id = m.capability_id
+        WHERE m.id = $1`,
+      [res.rows[0].id],
+    );
+    return mapMachine(joined.rows[0]);
   }
 
   async publishCapacityVersion(
@@ -1047,7 +1054,7 @@ export class SupplierRepository {
 
   async listMachines(supplierProfileId: string, includeHistory: boolean): Promise<MachineRow[]> {
     const res = await this.db.pool.query(
-      `SELECT m.*, c.code, c.kind, c.label
+      `SELECT m.*, c.code, c.kind, c.label AS capability_label
          FROM supplier.machine m
          LEFT JOIN supplier.capability c ON c.id = m.capability_id
         WHERE m.supplier_profile_id = $1
@@ -1129,7 +1136,7 @@ function mapMachine(row: Record<string, unknown>): MachineRow {
           capabilityId: row['capability_id'] as string,
           code: row['code'] as string,
           kind: row['kind'] as string,
-          label: row['label'] as string,
+          label: row['capability_label'] as string,
         }
       : null,
   };
