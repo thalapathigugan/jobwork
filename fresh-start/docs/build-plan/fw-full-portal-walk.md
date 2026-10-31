@@ -144,4 +144,37 @@ Each confirmed defect becomes a failing walk step first and is fixed on its own 
 
 ## Deviations
 
-_None yet._
+**Status (paused by the owner, 2026-10-31).** Chapters 01–11 are written and green against a persistent local stack, run one at a time: 01 public, 02 supplier admission, 03 enquiry to award, 04 quote to payment, 05 production, 06 quality, 07 logistics, 08 changes, 09 settlement and support, 10 console and administration, 11 accounts. The fixes ride in this branch as their own `fix(...)` commits rather than separate `fix/` branches, so the walk's video proves each one.
+
+**Still to do:**
+
+- FW.11 route sweep and access matrix (`12-sweep.spec.ts`).
+- `scripts/stitch-videos.mjs`.
+- The CI `portal-walk` job with the video artifact.
+- One clean full run from a fresh database: since `command()` became strict in chapter 5, chapters 01–04 have not been rerun.
+- The full gate, then the PR.
+
+| # | Where | Defect | Fix |
+|---|---|---|---|
+| W1 | Portal `/supplier` home | The tiles read the internal `/rfqs` (refused) and two hard-coded zeros. | Read `/supplier/rfqs`, `/supplier/purchase-orders`, `/supplier/bills`. |
+| W2 | Ops `/quotes/[id]` | "Cost sheet lineage" went to `/awards`, which is a 404. | Link to the round, which holds the award and its cost sheet. |
+| W3 | Portal `/team` | The dev `acceptUrl` is not shown. | Recorded only. |
+| W4 | `ErrorState` | The support code failed AA contrast on the tint. | On-tint muted token. |
+| W5 | API `listMachines` | `c.label` overwrote the machine's own label, so machines showed unnamed. | Alias it; return the joined row after publish. |
+| W6 | Thread captions | Own messages and internal notes failed AA contrast. | On-tint muted token. |
+| W7 | Portal bid form plus `MoneyInput` | After any reload, prices reset to ₹0 while the old figures still showed, so a revised bid went out at ₹0. Save draft also dropped the prices. | Keep typed lines, start from the live bid or the draft, and save prices with the draft. `MoneyInput` re-syncs when its value changes from outside. |
+| W8 | Approvals row for a cost sheet | Linked to `/cost-sheets/:id`, which is a 404. | Link to the award. |
+| W9 | Baseline candidates | Offered every JobWork document, including other customers' supplier copies. | Exclude supplier copies and files another order has baselined. |
+| W10 | `/approvals` | Admitted only commercial roles, so quality could not see the deviations it must decide. | Other JobWork roles see the requests they may decide, filtered in SQL. |
+| W11 | Supplier shipment plan | With no hub address it returned a 500 from the two-parties check. | Refuse `HUB_MISSING` before inserting. |
+| W12 | `CommandButton` | A screen's own check ("Say why…") was labelled UNEXPECTED. | A plain `Error` shows its message without a code. |
+| W13 | Unread notifications | Body and time failed AA contrast. | On-tint muted token. |
+
+**Harness lessons** (also in the walk's comments):
+
+- `command()` waits for its own API response; the load state is already reached.
+- Next's route announcer has `role=alert`; exclude it.
+- `datetime-local` takes browser-local time; use `localStamp` and `freshMinute`.
+- The e2e database needs JobWork's hub site.
+- API-built rounds invite only Anand and Balaji.
+- Test phone numbers must not collide with the Kovai contact (the identity guard flags them).
