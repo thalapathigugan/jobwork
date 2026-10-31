@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Field } from '../primitives/Field';
 
 /**
@@ -71,6 +71,14 @@ export function MoneyInput({
   // mid-typing, which would fight the caret.
   const [text, setText] = useState(() => toEditableString(value));
   const digits = minorUnitDigits(currency);
+  // A value set from outside (a form reloaded or reset after a command) must show; the
+  // field used to keep the old text while the form held another amount, so a supplier
+  // saw its price and sent zero (FW W7). Never while focused: that would fight the caret.
+  const focused = useRef(false);
+  const amount = value?.amountMinor ?? null;
+  useEffect(() => {
+    if (!focused.current) setText(toEditableString(value));
+  }, [amount, value?.currency]);
 
   return (
     <Field label={label} hint={hint} error={error}>
@@ -109,7 +117,13 @@ export function MoneyInput({
               if (!Number.isFinite(parsed)) return;
               onChange({ amountMinor: Math.round(parsed * 10 ** digits), currency });
             }}
-            onBlur={() => setText(toEditableString(value))}
+            onFocus={() => {
+              focused.current = true;
+            }}
+            onBlur={() => {
+              focused.current = false;
+              setText(toEditableString(value));
+            }}
             style={{
               flex: 1,
               minWidth: 0,
