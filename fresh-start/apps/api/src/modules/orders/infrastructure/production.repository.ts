@@ -163,7 +163,7 @@ export class ProductionRepository {
 
   // ----------------------------------------------------------------- baseline candidates
 
-  /** The order's enquiry documents and JobWork's own documents linked to nothing else. */
+  /** The order's enquiry documents and JobWork's own documents linked to nothing else (no supplier copies, nothing another order baselined). */
   async baselineCandidates(salesOrderId: string, tx?: Queryable): Promise<BaselineCandidate[]> {
     const res = await this.q(tx).query(
       `SELECT d.id AS "documentId", dv.id AS "documentVersionId", d.title, d.logical_type AS "logicalType", dv.version_no AS "versionNo",
@@ -180,6 +180,14 @@ export class ProductionRepository {
          JOIN iam.organization o ON o.id = d.owning_organization_id AND o.type = 'internal'
          JOIN dms.document_version dv ON dv.document_id = d.id AND dv.version_no = d.current_version_no
          JOIN dms.file_object f ON f.id = dv.file_object_id
+        -- FW W9: never a supplier copy (each travels with its source document, and the
+        -- others are other customers' drawings), nor a file another order has baselined.
+        WHERE NOT EXISTS (
+                SELECT 1 FROM dms.supplier_copy sc JOIN dms.document_version cv ON cv.id = sc.copy_version_id
+                 WHERE cv.document_id = d.id)
+          AND NOT EXISTS (
+                SELECT 1 FROM dms.baseline_item bi JOIN dms.baseline b ON b.id = bi.baseline_id
+                 WHERE bi.document_id = d.id AND b.sales_order_id <> $1)
        UNION ALL
        -- IN-13: the revisions an open change brings in (a customer's new drawing version).
        SELECT DISTINCT d.id, dv.id, d.title, d.logical_type, dv.version_no, dv.original_filename, f.sha256, dv.status, f.scan_state, 'change'

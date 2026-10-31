@@ -8,7 +8,7 @@ import { hashPassword } from '../src/modules/iam/domain/password';
 import { baselineHash } from '../src/modules/orders/domain/production';
 import { createTestApp } from './helpers/boot';
 import { TestClient } from './helpers/http';
-import { stageSupplierCopy } from './helpers/supplier-copy';
+import { stageJobWorkFile, stageSupplierCopy } from './helpers/supplier-copy';
 
 const PASSWORD = 'production-password-1';
 const WEBHOOK_SECRET = 'test-payment-webhook-secret';
@@ -230,7 +230,13 @@ describe('Baseline, production release, milestones (IN-09)', () => {
   // ---------------------------------------------------------------- F-09.2 baseline
 
   it('offers only clean manufacturing documents, blocks conflicting governing drawings, and freezes a reproducible hash', async () => {
+    // FW W9: a supplier copy of another order's drawing is never offered (it is another
+    // customer's part), while JobWork's own unlinked files still are.
+    const strayCopy = await stageSupplierCopy(pg, await stageJobWorkFile(pg, 'another-order-drawing.pdf'), 'another-customer-copy.pdf');
+    const ownFile = await stageJobWorkFile(pg, 'jobwork-packing-spec.pdf');
     const candidates = (await engineering.get(`/api/v1/sales-orders/${orderId}/baseline-candidates`)).body['candidates'] as Body[];
+    expect(candidates.find((c) => c['documentVersionId'] === strayCopy)).toBeUndefined();
+    expect(candidates.find((c) => c['documentVersionId'] === ownFile)).toMatchObject({ source: 'internal' });
     expect(candidates.find((c) => c['documentVersionId'] === photoV)).toMatchObject({ selectable: false });
     expect(candidates.find((c) => c['documentVersionId'] === drawingV)).toMatchObject({ selectable: true, source: 'governing' });
     // A customer cannot read the internal production surface.
