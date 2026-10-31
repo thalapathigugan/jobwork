@@ -112,7 +112,7 @@ export function ErrorState({
       <p style={{ font: 'var(--text-body-strong)', color: 'var(--status-blocked-fg)' }}>{title}</p>
       <p style={{ marginTop: 'var(--space-1)' }}>{message}</p>
       {code || correlationId ? (
-        <p style={{ marginTop: 'var(--space-2)', font: 'var(--text-caption)', color: 'var(--color-text-muted)' }}>
+        <p style={{ marginTop: 'var(--space-2)', font: 'var(--text-caption)', color: 'var(--color-text-muted-on-tint)' }}>
           Quote this to support:{' '}
           <span className="mono">
             {code}
