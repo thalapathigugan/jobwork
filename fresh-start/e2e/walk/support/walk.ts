@@ -210,3 +210,19 @@ export async function expand(page: Page, summary: string): Promise<Locator> {
   if ((await details.getAttribute('open')) === null) await details.locator('summary').first().click();
   return details;
 }
+
+/** A `datetime-local` value in the browser's own zone, `offsetMs` from now (minute precision). */
+export async function localStamp(page: Page, offsetMs = 0): Promise<string> {
+  return page.evaluate((offset) => {
+    const d = new Date(Date.now() + offset);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }, offsetMs);
+}
+
+/** Waits for the next minute and returns it: a stamp after anything already recorded, never in the future. */
+export async function freshMinute(page: Page): Promise<string> {
+  const ms = await page.evaluate(() => 60_000 - (Date.now() % 60_000) + 500);
+  await page.waitForTimeout(ms);
+  return localStamp(page);
+}

@@ -39,7 +39,7 @@ test('public · a customer registers, confirms the email and signs in', async ({
   await page.goto(`${PORTAL}/register`);
   await expect(page.getByRole('button', { name: 'Customer' })).toHaveAttribute('aria-pressed', 'true');
   await field(page, 'Full name').fill('Walk Owner');
-  await field(page, 'Mobile number').fill('9840012345');
+  await field(page, 'Mobile number').fill('9840099911');
   await field(page, 'Email address').fill(mail);
   await field(page, 'Company (optional)').fill('Walk Fabrications');
   await field(page, /^Password/).fill('walk-owner-password-1');

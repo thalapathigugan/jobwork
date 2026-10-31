@@ -76,6 +76,11 @@ for (const person of PEOPLE) {
   const membership = await one(`INSERT INTO iam.membership (user_id, organization_id) VALUES ($1, $2) RETURNING id`, [user.id, orgs[person.org]]);
   await db.query(`INSERT INTO iam.membership_role (membership_id, role_id) SELECT $1, id FROM iam.role WHERE key = ANY($2::text[])`, [membership.id, person.roles]);
 }
+// FW.0: JobWork's receiving hub, the destination of every supplier shipment (IN-16).
+await db.query(
+  `INSERT INTO iam.organization_site (organization_id, label, kind, address_line1, city, state, postal_code, contact_name, contact_phone) VALUES ($1, 'JobWork hub', 'works', 'Plot 7, Guindy Industrial Estate', 'Chennai', 'Tamil Nadu', '600032', 'Stores', '+91 90000 00001')`,
+  [orgs.internal],
+);
 const caps = (await db.query(`SELECT id, code FROM supplier.capability WHERE code IN ('cnc_milling', 'material_aluminium')`)).rows;
 for (const [key, trade] of [['supplierA', 'Anand Engineering'], ['supplierB', 'Balaji Precision']]) {
   const profile = await one(

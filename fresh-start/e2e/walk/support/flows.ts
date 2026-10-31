@@ -359,10 +359,9 @@ export async function released(deal: Deal, workPackageId: string, lots: Array<{ 
 export async function supplierSite(): Promise<string> {
   const a = await as('supplierA');
   const sites = ok(await a.get('/organizations/me/sites'), 200, 'sites')['sites'] as Body[] | undefined;
-  const existing = sites?.find((s) => s['status'] !== 'archived');
-  if (existing) return existing['siteId'] as string;
+  if (sites?.[0]) return sites[0]['siteId'] as string;
   ok(
-    await a.post('/suppliers/me/site', { label: 'Anand works', addressLine1: 'Plot 12, SIDCO Ambattur', addressLine2: '', city: 'Chennai', state: 'Tamil Nadu', postalCode: '600098', gstin: '' }),
+    await a.post('/suppliers/me/site', { label: 'Anand works', addressLine1: 'Plot 12, SIDCO Ambattur', addressLine2: '', city: 'Chennai', state: 'Tamil Nadu', postalCode: '600098' }),
     201,
     'works address',
   );
@@ -398,7 +397,7 @@ export async function receivedInFull(shipment: Body): Promise<Body> {
 /** The customer's delivery address, created once through its own address book. */
 export async function customerSite(): Promise<string> {
   const b = await as('buyer');
-  const sites = (ok(await b.get('/organizations/me/sites'), 200, 'sites')['sites'] as Body[]).filter((s) => s['status'] !== 'archived');
+  const sites = ok(await b.get('/organizations/me/sites'), 200, 'sites')['sites'] as Body[];
   if (sites[0]) return sites[0]['siteId'] as string;
   const made = ok(
     await b.post('/organizations/me/sites', { kind: 'delivery', label: 'Kovai Pumps plant', addressLine1: 'SIDCO Industrial Estate, Mudalipalayam', city: 'Tiruppur', state: 'Tamil Nadu', postalCode: '641606', contactName: 'R. Kumar', contactPhone: '+91 98400 12345' }),
