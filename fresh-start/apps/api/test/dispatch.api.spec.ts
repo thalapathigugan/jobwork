@@ -50,6 +50,13 @@ describe('Leg 1 dispatch (F-16.2)', () => {
 
   it('ships only released lots, within the released quantity, with the statutory documents', async () => {
     expect((await p.as.supplierB.post('/api/v1/supplier/shipments', { purchaseOrderId: deal.purchaseOrderId, originSiteId: p.sites.supplierB, packages: packages('LOT-A', 5) })).status).toBe(404);
+    // FW W11: with no JobWork hub address the plan is refused by name, not a 500 from the
+    // two-parties check, and nothing is written.
+    await p.rows(`UPDATE iam.organization_site SET status = 'archived' WHERE kind = 'works' AND organization_id = $1 RETURNING id`, [p.orgs.internal]);
+    const noHub = await plan(packages('LOT-A', 5));
+    await p.rows(`UPDATE iam.organization_site SET status = 'active' WHERE kind = 'works' AND organization_id = $1 RETURNING id`, [p.orgs.internal]);
+    expect(noHub.status).toBe(409);
+    expect(noHub.body['code']).toBe('HUB_MISSING');
     const over = ok(await plan(packages('LOT-A', 15, 10)), 201, 'plan too many');
     expect(over).toMatchObject({ status: 'planned', totalQuantity: '25' });
     expect(red(over)).toEqual(['quantity']);
