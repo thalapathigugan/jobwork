@@ -58,15 +58,18 @@ test('customer · creates an enquiry through the three-step wizard', async ({ pa
 });
 
 test('customer · resumes and discards a draft, withdraws and repeats an enquiry', async ({ page }) => {
-  const withdrawId = await submittedEnquiry('Walk spacer to withdraw');
+  const run = Date.now().toString(36).slice(-4);
+  const spacer = `Walk spacer ${run}`;
+  const bushing = `Walk draft bushing ${run}`;
+  const withdrawId = await submittedEnquiry(spacer);
   await signInAs(page, 'buyer');
   await page.goto(`${PORTAL}/enquiries/new`);
-  await field(page, 'Part / job name').fill('Walk draft bushing');
+  await field(page, 'Part / job name').fill(bushing);
   await expect(visible(page, /Draft saved/)).toBeVisible();
   await open(page, `${PORTAL}/enquiries`);
   await page.getByRole('radio', { name: /Drafts/ }).click();
-  await page.getByRole('link', { name: /Walk draft bushing/ }).first().click();
-  await expect(field(page, 'Part / job name')).toHaveValue('Walk draft bushing');
+  await page.getByRole('link', { name: new RegExp(bushing) }).first().click();
+  await expect(field(page, 'Part / job name')).toHaveValue(bushing);
   const draftId = new URL(page.url()).searchParams.get('draft');
   await open(page, `${PORTAL}/enquiries/${draftId}`);
   await expect(page.getByRole('link', { name: 'Continue editing' })).toBeVisible();
@@ -77,15 +80,15 @@ test('customer · resumes and discards a draft, withdraws and repeats an enquiry
   await command(page, 'Withdraw enquiry');
   // Withdrawing returns to the list, where withdrawn enquiries are hidden until asked for.
   await expect(page).toHaveURL(/\/enquiries$/);
-  await expect(page.getByText('Walk spacer to withdraw')).toHaveCount(0);
+  await expect(page.getByText(spacer)).toHaveCount(0);
   await button(page, 'Show withdrawn').click();
-  await expect(page.getByText('Walk spacer to withdraw').first()).toBeVisible();
-  await field(page, 'Search').fill('spacer');
-  await page.getByRole('link', { name: /Walk spacer to withdraw/ }).first().click();
+  await expect(page.getByText(spacer).first()).toBeVisible();
+  await field(page, 'Search').fill(run);
+  await page.getByRole('link', { name: new RegExp(spacer) }).first().click();
   await expect(page).toHaveURL(new RegExp(`/enquiries/${withdrawId}$`));
   await command(page, 'Order this again');
   await expect(page).toHaveURL(/\/enquiries\/new\?draft=/);
-  await expect(field(page, 'Part / job name')).toHaveValue(/Walk spacer to withdraw/);
+  await expect(field(page, 'Part / job name')).toHaveValue(new RegExp(spacer));
 });
 
 test('ops · engineering triages the enquiry and asks the customer a question', async ({ page }) => {
@@ -130,6 +133,14 @@ test('ops · engineering approves for sourcing and prepares the supplier copy', 
   await axe(page, 'intake detail (approved)');
 });
 
+/** The prices of the supplier's live bid, as JobWork received them. */
+async function sentPrices(who: 'supplierA' | 'supplierB'): Promise<{ unitPriceMinor: number; setupAmountMinor: number }> {
+  const rfq = ok(await (await as(who)).get(`/supplier/rfqs/${recall('rfqId')}`), 200, 'supplier rfq');
+  const versions = ((rfq['bid'] as Record<string, unknown>)['versions'] as Array<Record<string, unknown>>).filter((v) => v['status'] === 'submitted');
+  const line = (versions[0]!['lines'] as Array<Record<string, number>>)[0]!;
+  return { unitPriceMinor: line['unitPriceMinor']!, setupAmountMinor: line['setupAmountMinor']! };
+}
+
 async function intakeId(): Promise<string> {
   return recall('enquiryId');
 }
@@ -171,6 +182,9 @@ test('supplier · A acknowledges, saves a draft, asks a question and bids', asyn
   await expect(visible(page, 'Is anodising in our scope or yours?')).toBeVisible();
   await command(page, 'Submit bid');
   await expect(button(page, 'Submit a revised bid')).toBeVisible();
+  // W7: what was on screen is what was sent.
+  await expect(field(page, 'Price each')).toHaveValue('48.50');
+  expect(await sentPrices('supplierA')).toEqual({ unitPriceMinor: 4850, setupAmountMinor: 500000 });
   await axe(page, 'supplier RFQ (bid sent)');
 });
 
@@ -184,6 +198,8 @@ test('supplier · B bids, then revises its bid with a reason', async ({ page }) 
   await field(page, 'What changed, and why?').fill('Found a cheaper aluminium source this week.');
   await command(page, 'Submit a revised bid');
   await expect(visible(page, /v2|version 2/i)).toBeVisible();
+  // W7: the revision keeps the setup it was not asked to change.
+  expect(await sentPrices('supplierB')).toEqual({ unitPriceMinor: 5250, setupAmountMinor: 400000 });
 });
 
 test('ops · sourcing answers every supplier, closes, compares and proposes the award', async ({ page }) => {

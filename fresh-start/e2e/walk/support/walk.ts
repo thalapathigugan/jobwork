@@ -155,15 +155,17 @@ export async function open(page: Page, url: string, opts: { allowAlert?: boolean
   const h1 = page.getByRole('heading', { level: 1 }).first();
   await expect(h1).toBeVisible();
   if (opts.heading) await expect(h1).toContainText(opts.heading);
-  await page.waitForLoadState('networkidle').catch(() => undefined);
+  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
   await expect(page.getByText(/^(Something went wrong|That page does not exist|We could not show this page)$/)).toHaveCount(0);
   if (!opts.allowAlert) {
-    const alerts = page.getByRole('alert').filter({ visible: true });
-    const texts = await alerts.allInnerTexts();
+    const texts = await errorAlerts(page).allInnerTexts();
     expect(texts.filter((t) => t.trim() !== ''), `${url} shows an error`).toEqual([]);
   }
   await noSideways(page, url);
 }
+
+/** Visible alerts, without Next's route announcer (it reads the new page's title as an alert). */
+export const errorAlerts = (page: Page): Locator => page.locator('[role="alert"]:not(#__next-route-announcer__)').filter({ visible: true });
 
 export const button = (scope: Page | Locator, name: string | RegExp): Locator =>
   scope.getByRole('button', { name, exact: typeof name === 'string' }).filter({ visible: true }).first();
@@ -176,8 +178,8 @@ export async function command(page: Page, name: string | RegExp, scope: Page | L
   const b = button(scope, name);
   await expect(b).toBeEnabled();
   await b.click();
-  await page.waitForLoadState('networkidle').catch(() => undefined);
-  const alerts = (await page.getByRole('alert').filter({ visible: true }).allInnerTexts()).filter((t) => t.trim() !== '');
+  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
+  const alerts = (await errorAlerts(page).allInnerTexts()).filter((t) => t.trim() !== '');
   expect(alerts, `"${String(name)}" failed`).toEqual([]);
 }
 
