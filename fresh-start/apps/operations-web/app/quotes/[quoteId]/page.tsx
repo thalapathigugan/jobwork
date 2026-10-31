@@ -177,7 +177,8 @@ export default function QuotePage(): React.JSX.Element {
             {!['accepted', 'rejected', 'expired', 'withdrawn'].includes(quote.status) ? (
               <Button variant="ghost" onClick={() => setWithdrawing((w) => !w)}>Withdraw…</Button>
             ) : null}
-            {quote.costSheetVersionId ? <Link href={`/awards`}>Cost sheet lineage</Link> : null}
+            {/* FW W2: `/awards` has no index; the round links its award and cost sheet. */}
+            {quote.costSheetVersionId && quote.rfqId ? <Link href={`/rfqs/${quote.rfqId}`}>Sourcing round, award and cost sheet</Link> : null}
           </Inline>
           {quote.status === 'internal_approval' ? <p style={{ marginTop: 'var(--space-2)', color: 'var(--color-text-muted)' }}>Waiting on <Link href="/approvals">Approvals</Link>.</p> : null}
         </Card>
