@@ -207,6 +207,14 @@ describe('Page back header', () => {
     const heading = screen.getByRole('heading', { level: 1, name: 'Home' });
     expect(heading.className).toContain('jw-visually-hidden');
   });
+
+  it('makes the splash headline the entry page\'s h1 (FW W14), and keeps the banner a paragraph', () => {
+    const { unmount } = render(<Hero variant="splash" headline="JobWork" subline="Custom parts." />);
+    expect(screen.getByRole('heading', { level: 1, name: 'JobWork' })).toBeTruthy();
+    unmount();
+    render(<Hero headline="Precision work." />);
+    expect(screen.queryByRole('heading')).toBeNull();
+  });
 });
 
 describe('QuickAction', () => {

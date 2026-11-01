@@ -17,7 +17,11 @@ export interface HeroProps {
   actions?: ReactNode | undefined;
   /** Purely decorative artwork or a mark; rendered `aria-hidden`. */
   illustration?: ReactNode | undefined;
-  /** `banner` is the compact home card; `splash` fills the screen for the entry pages. */
+  /**
+   * `banner` is the compact home card, under the page's own heading; `splash` fills the
+   * screen for an entry page and is its only heading, so its headline is the h1 (FW W14:
+   * the welcome page had no heading for assistive technology).
+   */
   variant?: 'banner' | 'splash' | undefined;
 }
 
@@ -36,7 +40,7 @@ export function Hero({
         </div>
       ) : null}
       <div className="jw-hero-body">
-        <p className="jw-hero-headline">{headline}</p>
+        {variant === 'splash' ? <h1 className="jw-hero-headline">{headline}</h1> : <p className="jw-hero-headline">{headline}</p>}
         {subline ? <p className="jw-hero-subline">{subline}</p> : null}
         {actions ? <div className="jw-hero-actions">{actions}</div> : null}
       </div>
