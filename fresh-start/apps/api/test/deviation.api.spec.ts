@@ -153,6 +153,13 @@ describe('Deviation (F-15.3)', () => {
     expect((raNcr['dispositions'] as Body[])[0]).toMatchObject({ disposition: 'use_as_is', outcome: 'deviation_rejected' });
 
     const accepted = ok(await request(raNcr, { rationale: 'Ra 4.0 on the hidden mounting face only', riskAssessment: 'Cosmetic only', fitFunctionSafety: 'No functional face' }), 201, 'request Ra again');
+    // FW W10: quality decides minor deviations, so it can open the queue they wait in, and
+    // sees only the requests it may decide (no commercial request, no amounts of others).
+    const queue = ok(await p.as.quality2.get('/api/v1/approvals?status=pending'), 200, 'quality approvals')['approvals'] as Body[];
+    expect(queue.map((a) => a['approvalRequestId'])).toContain(accepted['approvalRequestId']);
+    expect(queue.every((a) => (a['requiredRoles'] as string[]).includes('jobwork_quality'))).toBe(true);
+    expect((await p.as.quality2.get(`/api/v1/approvals/${accepted['approvalRequestId']}`)).status).toBe(200);
+    expect((await p.as.supplierA.get('/api/v1/approvals?status=pending')).status).toBe(403);
     ok(await p.decide('quality2', accepted['approvalRequestId'] as string), 201, 'approve');
     raNcr = await ncr(raNcr);
     expect(raNcr).toMatchObject({ status: 'accepted_under_deviation', attemptNo: 2 });

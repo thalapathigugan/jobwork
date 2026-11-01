@@ -306,6 +306,12 @@ describe('Supplier capabilities and eligibility (F-04.3, F-04.4)', () => {
         xMm: number;
       }).xMm,
     ).toBe(1000);
+    // FW W5: the machine keeps its own label, with or without a capability; the
+    // capability's label used to overwrite it (both columns were named `label`).
+    const listed = (machines.body['machines'] as Array<Record<string, unknown>>)[0]!;
+    expect(listed['label']).toBe('VMC 1050');
+    expect(machine.body['label']).toBe('VMC 850');
+    expect((machine.body['capability'] as Record<string, unknown>)['label']).not.toBe('VMC 850');
   });
 
   it('shows a customer capability cards that identify nobody (FR-203)', async () => {

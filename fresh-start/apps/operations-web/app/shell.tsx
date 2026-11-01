@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { OperationsSummary } from '@jobwork/contracts';
-import { AppShell, LinkProvider, type NavItem, useCommandTick } from '@jobwork/ui';
-import { api } from '../lib/api';
+import { AppShell, isNavGroup, LinkProvider, type NavEntry, type NavItem, useCommandTick } from '@jobwork/ui';
+import { api, ApiError } from '../lib/api';
 
 /**
  * Operations navigation. The app runs in `compact` density (doc 21 §2, `DS-02`) because
@@ -17,28 +17,52 @@ import { api } from '../lib/api';
  * role-filtered summary the home screen uses, so a badge never advertises work the
  * operator is not allowed to do — and an item with nothing waiting carries no badge at
  * all, because a badge that is always present stops being read.
+ *
+ * Nineteen flat items wrapped onto two rows at desktop widths, so related screens sit in
+ * groups (one row; a group's heading carries its items' badge total). The inboxes an
+ * operator returns to all day stay top-level and come first, so on a phone no plain link
+ * reads as part of the group above it; Account is the profile icon by the bell.
  */
 
-const BASE_NAVIGATION: NavItem[] = [
+const BASE_NAVIGATION: NavEntry[] = [
   { href: '/', label: 'Home' },
   { href: '/queues', label: 'Queues' },
-  { href: '/intake', label: 'Intake' },
-  { href: '/rfqs', label: 'RFQs' },
-  { href: '/quotes', label: 'Quotes' },
-  { href: '/sales-orders', label: 'Orders' },
-  { href: '/production', label: 'Production' },
-  { href: '/changes', label: 'Changes' },
-  { href: '/quality', label: 'Quality' },
-  { href: '/logistics', label: 'Logistics' },
+  { href: '/approvals', label: 'Approvals' },
   { href: '/finance', label: 'Finance' },
   { href: '/support', label: 'Support' },
-  { href: '/approvals', label: 'Approvals' },
-  { href: '/leakage-reviews', label: 'Held messages' },
-  { href: '/suppliers', label: 'Suppliers' },
-  { href: '/organizations', label: 'Organizations' },
-  { href: '/ops-health', label: 'Health' },
-  { href: '/audit', label: 'Audit' },
-  { href: '/account/security', label: 'Account' },
+  {
+    label: 'Sales',
+    items: [
+      { href: '/intake', label: 'Intake' },
+      { href: '/rfqs', label: 'RFQs' },
+      { href: '/quotes', label: 'Quotes' },
+      { href: '/sales-orders', label: 'Orders' },
+    ],
+  },
+  {
+    label: 'Delivery',
+    items: [
+      { href: '/production', label: 'Production' },
+      { href: '/changes', label: 'Changes' },
+      { href: '/quality', label: 'Quality' },
+      { href: '/logistics', label: 'Logistics' },
+    ],
+  },
+  {
+    label: 'Network',
+    items: [
+      { href: '/suppliers', label: 'Suppliers' },
+      { href: '/organizations', label: 'Organizations' },
+    ],
+  },
+  {
+    label: 'Control',
+    items: [
+      { href: '/leakage-reviews', label: 'Held messages' },
+      { href: '/ops-health', label: 'Health' },
+      { href: '/audit', label: 'Audit' },
+    ],
+  },
 ];
 
 /** Which queues each navigation item is answerable for. */
@@ -85,12 +109,20 @@ function OperationsFrame({ environmentLabel, children }: ShellProps): React.JSX.
   // Counts change when someone acts here as well as when they move on (F-12.4).
   const commandTick = useCommandTick();
 
+  const router = useRouter();
+  const unshelled = UNSHELLED.some((path) => pathname?.startsWith(path));
+
   useEffect(() => {
-    // Anonymous, external, or offline: navigation without counts is still correct.
+    // Offline or external: navigation without counts is still correct. Signed out: every
+    // screen is JobWork-only, so go to sign in rather than render "Authentication required"
+    // beside an empty list (FW W15).
     api<OperationsSummary>('/operations/summary')
       .then(setSummary)
-      .catch(() => setSummary(null));
-  }, [pathname, commandTick]);
+      .catch((err: unknown) => {
+        setSummary(null);
+        if (!unshelled && err instanceof ApiError && err.problem.status === 401) router.replace('/login');
+      });
+  }, [pathname, commandTick, unshelled, router]);
 
   // F-10.3: the bell counts this person's unread notifications.
   useEffect(() => {
@@ -108,18 +140,21 @@ function OperationsFrame({ environmentLabel, children }: ShellProps): React.JSX.
     };
   }, [pathname, commandTick]);
 
-  if (UNSHELLED.some((path) => pathname?.startsWith(path))) {
+  if (unshelled) {
     return <main id="main">{children}</main>;
   }
 
   const counts = new Map(summary?.queues.map((queue) => [queue.key as string, queue.count]) ?? []);
-  const navigation: NavItem[] = BASE_NAVIGATION.map((item) => {
+  const withBadge = (item: NavItem): NavItem => {
     const badge = (BADGE_SOURCES[item.href] ?? []).reduce(
       (total, key) => total + (counts.get(key) ?? 0),
       0,
     );
     return badge > 0 ? { ...item, badge } : item;
-  });
+  };
+  const navigation: NavEntry[] = BASE_NAVIGATION.map((entry) =>
+    isNavGroup(entry) ? { ...entry, items: entry.items.map(withBadge) } : withBadge(entry),
+  );
 
   return (
     <AppShell
@@ -129,6 +164,7 @@ function OperationsFrame({ environmentLabel, children }: ShellProps): React.JSX.
       currentPath={pathname ?? undefined}
       environmentLabel={environmentLabel}
       notifications={{ href: '/notifications', count: unread }}
+      account={{ href: '/account/security', label: 'Account' }}
     >
       {children}
     </AppShell>

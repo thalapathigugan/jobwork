@@ -4,7 +4,16 @@
     "module": "commonjs",
     "moduleResolution": "node10",
     "noEmit": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["tests", "support", "playwright.config.ts"]
+  "include": [
+    "tests",
+    "support",
+    "walk",
+    "scripts/*.ts",
+    "playwright.config.ts",
+    "playwright.walk.config.ts"
+  ]
 }

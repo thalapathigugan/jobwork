@@ -46,6 +46,14 @@ function requireReader(actor: Actor): void {
   requireRole(actor, ...COMMERCIAL_READ_ROLES);
 }
 
+/** null: a commercial reader, who sees every request; otherwise the roles whose requests the actor sees. */
+function approvalScope(actor: Actor): string[] | null {
+  if (!actor.isInternal) throw new NotAuthorized('JobWork only');
+  if (COMMERCIAL_READ_ROLES.some((role) => actor.roles.includes(role))) return null;
+  if (actor.roles.length === 0) throw new NotAuthorized('JobWork only');
+  return actor.roles;
+}
+
 const approvalListQuerySchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected', 'returned', 'superseded']).optional(),
   kind: z.enum(['award', 'cost_sheet', 'quote', 'allocation', 'change', 'deviation', 'dispatch_override', 'bill_exception', 'case_resolution']).optional(),
@@ -132,19 +140,25 @@ export class ApprovalsController {
     private readonly view: CommercialView,
   ) {}
 
+  /**
+   * Commercial readers see every request. Other JobWork roles that decide approvals
+   * (quality for deviations and physical case resolutions, engineering for changes,
+   * logistics for dispatch overrides) see only the requests they may decide, filtered in
+   * the query (FW W10: quality could not open the queue its deviations wait in).
+   */
   @Get()
   async list(@CurrentActor() actor: Actor, @Query() query: unknown): Promise<{ approvals: ApprovalRequest[] }> {
-    requireReader(actor);
+    const decidableBy = approvalScope(actor);
     const { status, kind, limit } = parseBody(approvalListQuerySchema, query);
-    const rows = await this.repo.listApprovalRequests({ status, kind }, limit);
+    const rows = await this.repo.listApprovalRequests({ status, kind, decidableBy }, limit);
     return { approvals: rows.map((row) => this.view.approval(row)) };
   }
 
   @Get(':approvalRequestId')
   async get(@CurrentActor() actor: Actor, @Param('approvalRequestId') id: string): Promise<ApprovalRequest> {
-    requireReader(actor);
+    const decidableBy = approvalScope(actor);
     const row = await this.repo.findApprovalRequest(id);
-    if (!row) throw new ApprovalNotFound();
+    if (!row || (decidableBy && !row.requiredRoles.some((role) => decidableBy.includes(role)))) throw new ApprovalNotFound();
     return this.view.approval(row);
   }
 

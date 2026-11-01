@@ -38,6 +38,9 @@ export interface CommandButtonProps extends Omit<ButtonProps, 'onClick' | 'busy'
 function toProblem(error: unknown): CommandProblem {
   const candidate = (error as { problem?: CommandProblem } | undefined)?.problem;
   if (candidate?.code) return candidate;
+  // A plain Error is a screen's own check ("Say why…"): its message is the whole story, and
+  // an UNEXPECTED code beside it read as a fault (FW W12). Anything else is a real failure.
+  if (error instanceof Error && error.constructor === Error) return { code: '', title: error.message };
   return {
     code: 'UNEXPECTED',
     title: error instanceof Error ? error.message : 'That command did not complete',
@@ -94,10 +97,12 @@ export function CommandButton({
           }}
         >
           {problem.detail ?? problem.title}{' '}
-          <span className="mono" style={{ color: 'var(--color-text-muted)' }}>
-            {problem.code}
-            {problem.correlationId ? ` · ${problem.correlationId.slice(0, 8)}` : ''}
-          </span>
+          {problem.code ? (
+            <span className="mono" style={{ color: 'var(--color-text-muted)' }}>
+              {problem.code}
+              {problem.correlationId ? ` · ${problem.correlationId.slice(0, 8)}` : ''}
+            </span>
+          ) : null}
         </span>
       ) : null}
     </span>

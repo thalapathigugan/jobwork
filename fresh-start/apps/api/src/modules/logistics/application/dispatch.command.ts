@@ -166,6 +166,9 @@ export class DispatchCommand {
           const origin = await this.repo.site(cmd.originSiteId, tx);
           if (!origin || origin.organizationId !== po.supplierOrganizationId) throw new LogisticsRefused('ORIGIN_NOT_YOURS', 'Ship from one of your own sites', undefined, 422);
           const hub = await this.repo.hubSite(tx);
+          // Refuse before inserting: without a hub the row named the supplier as its own
+          // consignee and the two-parties check failed with a 500 (FW W11).
+          if (!hub) throw new LogisticsRefused('HUB_MISSING', 'JobWork’s receiving hub has no active works address', 'JobWork sets it up before shipments can be planned.');
           const number = await this.repo.allocateNumber('SH', 'shipment', new Date(), tx);
           const shipmentId = await this.repo.insert(
             {
@@ -175,15 +178,14 @@ export class DispatchCommand {
               workPackageId: po.workPackage?.id ?? null,
               purchaseOrderId: po.id,
               shipperOrganizationId: po.supplierOrganizationId,
-              consigneeOrganizationId: hub?.organizationId ?? po.supplierOrganizationId,
+              consigneeOrganizationId: hub.organizationId,
               originSiteId: origin.id,
-              destinationSiteId: hub?.id ?? null,
+              destinationSiteId: hub.id,
               documents: cmd.documents,
               by: actor.userId,
             },
             tx,
           );
-          if (!hub) throw new LogisticsRefused('HUB_MISSING', 'JobWork’s receiving hub has no active works address', 'JobWork sets it up before shipments can be planned.');
           await this.repo.replaceContents(shipmentId, cmd.packages, tx);
           const version = await this.repo.update(shipmentId, { status: 'planned' }, tx);
           const s = { id: shipmentId, number, leg: 'supplier_to_jobwork', salesOrderId: po.salesOrderId, shipperOrganizationId: po.supplierOrganizationId };

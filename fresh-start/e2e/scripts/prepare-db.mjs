@@ -40,6 +40,14 @@ const PEOPLE = [
   { email: 'sales2@jobwork.test', org: 'internal', roles: ['jobwork_sales'] },
   { email: 'finance@jobwork.test', org: 'internal', roles: ['jobwork_finance'] },
   { email: 'support@jobwork.test', org: 'internal', roles: ['jobwork_support'] },
+  // FW.0: the full portal walk also needs reviewer separation, a second finance member,
+  // quality, logistics and administration.
+  { email: 'sourcing2@jobwork.test', org: 'internal', roles: ['jobwork_sourcing'] },
+  { email: 'finance2@jobwork.test', org: 'internal', roles: ['jobwork_finance'] },
+  { email: 'quality@jobwork.test', org: 'internal', roles: ['jobwork_quality'] },
+  { email: 'quality2@jobwork.test', org: 'internal', roles: ['jobwork_quality'] },
+  { email: 'logistics@jobwork.test', org: 'internal', roles: ['jobwork_logistics'] },
+  { email: 'admin@jobwork.test', org: 'internal', roles: ['platform_admin', 'security_admin', 'auditor'] },
 ];
 
 const server = new pg.Client({ connectionString: admin });
@@ -68,6 +76,11 @@ for (const person of PEOPLE) {
   const membership = await one(`INSERT INTO iam.membership (user_id, organization_id) VALUES ($1, $2) RETURNING id`, [user.id, orgs[person.org]]);
   await db.query(`INSERT INTO iam.membership_role (membership_id, role_id) SELECT $1, id FROM iam.role WHERE key = ANY($2::text[])`, [membership.id, person.roles]);
 }
+// FW.0: JobWork's receiving hub, the destination of every supplier shipment (IN-16).
+await db.query(
+  `INSERT INTO iam.organization_site (organization_id, label, kind, address_line1, city, state, postal_code, contact_name, contact_phone) VALUES ($1, 'JobWork hub', 'works', 'Plot 7, Guindy Industrial Estate', 'Chennai', 'Tamil Nadu', '600032', 'Stores', '+91 90000 00001')`,
+  [orgs.internal],
+);
 const caps = (await db.query(`SELECT id, code FROM supplier.capability WHERE code IN ('cnc_milling', 'material_aluminium')`)).rows;
 for (const [key, trade] of [['supplierA', 'Anand Engineering'], ['supplierB', 'Balaji Precision']]) {
   const profile = await one(

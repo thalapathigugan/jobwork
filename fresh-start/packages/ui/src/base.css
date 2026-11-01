@@ -211,7 +211,8 @@ code,
   }
 }
 
-/* AppShell — navigation collapses to a disclosure below `md`. */
+/* AppShell — navigation collapses to a disclosure below `md`. Groups are headed lists
+   in the open disclosure and dropdown panels above `md`. */
 .jw-nav {
   display: none;
 }
@@ -225,6 +226,68 @@ code,
   display: none;
 }
 
+.jw-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: var(--text-body);
+  color: var(--color-text);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.jw-nav-link:hover {
+  background: var(--neutral-100);
+  color: var(--color-text);
+}
+
+.jw-nav-link[aria-current='page'] {
+  font: var(--text-body-strong);
+  color: var(--color-action);
+  background: var(--status-progress-bg);
+}
+
+.jw-nav-badge {
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--status-attention-bg);
+  border: var(--hairline) solid var(--status-attention-border);
+  color: var(--status-attention-fg);
+  font: var(--text-caption);
+  text-align: center;
+}
+
+.jw-nav-group {
+  position: relative;
+}
+
+.jw-nav-group-button {
+  display: none;
+}
+
+.jw-nav-group-label {
+  display: block;
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.jw-nav-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .jw-nav-open {
   display: flex;
   flex-direction: column;
@@ -233,6 +296,8 @@ code,
   left: 0;
   right: 0;
   top: 100%;
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
   padding: var(--space-3) var(--space-4);
   background: var(--color-surface);
   border-bottom: var(--hairline) solid var(--color-border);
@@ -251,20 +316,79 @@ code,
     border: 0;
     background: transparent;
     flex-direction: row;
-    /* Operations carries ~19 items: wrap onto a second row rather than run off-screen. */
     flex: 1 1 auto;
     min-width: 0;
     flex-wrap: wrap;
     justify-content: flex-end;
     row-gap: 0;
+    max-height: none;
+    overflow: visible;
   }
 
-  .jw-nav-toggle {
+  /* Doubled class: `.jw-icon-button` (declared later) would otherwise show the toggle. */
+  .jw-nav-toggle.jw-nav-toggle {
     display: none;
   }
 
   .jw-account-slot {
     display: block;
+  }
+
+  .jw-nav-group-label {
+    display: none;
+  }
+
+  .jw-nav-group-button {
+    display: inline-flex;
+  }
+
+  .jw-nav-group-active > .jw-nav-group-button {
+    font: var(--text-body-strong);
+    color: var(--color-action);
+    background: var(--status-progress-bg);
+  }
+
+  .jw-nav-chevron {
+    display: inline-flex;
+    transform: rotate(90deg);
+    transition: transform 120ms ease;
+  }
+
+  .jw-nav-group-button[aria-expanded='true'] .jw-nav-chevron {
+    transform: rotate(-90deg);
+  }
+
+  .jw-nav-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + var(--space-1));
+    left: 0;
+    z-index: 30;
+    min-width: 200px;
+    padding: var(--space-2);
+    background: var(--color-surface);
+    border: var(--hairline) solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .jw-nav-panel-end {
+    left: auto;
+    right: 0;
+  }
+
+  .jw-nav-panel-open {
+    display: flex;
+  }
+
+  .jw-nav-panel .jw-nav-link {
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jw-nav-chevron {
+    transition: none;
   }
 }
 
@@ -1093,6 +1217,15 @@ code,
   margin-top: var(--space-1);
 }
 
+/* The sender's own messages and internal notes sit on a tint, where the plain muted
+   colour misses AA contrast (FW W6); the on-tint muted token keeps the caption readable. */
+.jw-message-mine .jw-message-meta,
+.jw-message-mine .jw-message-lineage,
+.jw-message-internal .jw-message-meta,
+.jw-message-internal .jw-message-lineage {
+  color: var(--color-text-muted-on-tint);
+}
+
 .jw-message-body {
   margin-top: var(--space-2);
   white-space: pre-wrap;
@@ -1165,4 +1298,11 @@ code,
 .jw-notification-time {
   font: var(--text-caption);
   color: var(--color-text-muted);
+}
+
+/* Unread notifications sit on the progress tint, where the plain muted colour misses AA
+   contrast (FW W13); the on-tint muted token keeps body and time readable. */
+.jw-notification-unread .jw-notification-body,
+.jw-notification-unread .jw-notification-time {
+  color: var(--color-text-muted-on-tint);
 }

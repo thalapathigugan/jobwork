@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { ChecklistRow, SupplierRfqListItem, SupplierSelfView, SupplierSummary } from '@jobwork/contracts';
+import type { ChecklistRow, SupplierBill, SupplierPurchaseOrder, SupplierRfqListItem, SupplierSelfView, SupplierSummary } from '@jobwork/contracts';
 import {
   Button,
   Callout,
@@ -87,6 +87,8 @@ export default function SupplierHomePage(): React.JSX.Element {
   const [view, setView] = useState<SupplierSelfView | null>(null);
   const [summary, setSummary] = useState<SupplierSummary | null>(null);
   const [rfqs, setRfqs] = useState<SupplierRfqListItem[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState(0);
+  const [settlementsDue, setSettlementsDue] = useState(0);
   const [error, setError] = useState<ApiError | null>(null);
   const [pauseNote, setPauseNote] = useState('');
   const [pauseUntil, setPauseUntil] = useState('');
@@ -94,17 +96,23 @@ export default function SupplierHomePage(): React.JSX.Element {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [self, work, invited] = await Promise.all([
+      const [self, work, invited, orders, bills] = await Promise.all([
         api<SupplierSelfView>('/suppliers/me'),
         // Dates only matter once somebody is in the network; before that the checklist
         // is the whole story, so a refused summary is not an error worth showing.
         api<SupplierSummary>('/suppliers/me/summary').catch(() => null),
-        // The overview tiles (prototype tile 15) count the supplier's own RFQs and bids.
-        api<{ rfqs: SupplierRfqListItem[] }>('/rfqs').then((res) => res.rfqs).catch(() => []),
+        // The overview tiles (prototype tile 15) count the supplier's own RFQs, bids,
+        // purchase orders and settlements, from the supplier's routes (FW W1: the
+        // internal `/rfqs` list refused a supplier and every tile read 0).
+        api<{ rfqs: SupplierRfqListItem[] }>('/supplier/rfqs').then((res) => res.rfqs).catch(() => []),
+        api<{ purchaseOrders: SupplierPurchaseOrder[] }>('/supplier/purchase-orders').then((res) => res.purchaseOrders).catch(() => []),
+        api<SupplierBill[]>('/supplier/bills').catch(() => []),
       ]);
       setView(self);
       setSummary(work);
       setRfqs(invited);
+      setPurchaseOrders(orders.filter((po) => po.status !== 'cancelled').length);
+      setSettlementsDue(bills.filter((b) => b.settlement !== null && b.settlement.status !== 'paid').length);
       setPauseNote(self.profile.acceptingWorkNote);
       setPauseUntil(self.profile.acceptingWorkUntil ?? '');
     } catch (err) {
@@ -188,11 +196,11 @@ export default function SupplierHomePage(): React.JSX.Element {
               <span className="jw-stat-label">Bids sent</span>
             </Link>
             <Link href="/supplier/orders" className="jw-stat">
-              <span className="jw-stat-value">0</span>
+              <span className="jw-stat-value">{purchaseOrders}</span>
               <span className="jw-stat-label">Purchase orders</span>
             </Link>
-            <Link href="/supplier/orders" className="jw-stat">
-              <span className="jw-stat-value">0</span>
+            <Link href="/supplier/bills" className="jw-stat">
+              <span className="jw-stat-value">{settlementsDue}</span>
               <span className="jw-stat-label">Settlements due</span>
             </Link>
           </div>

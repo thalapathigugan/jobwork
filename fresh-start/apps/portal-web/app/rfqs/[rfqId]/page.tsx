@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { BidVersion, SupplierRfq } from '@jobwork/contracts';
@@ -80,26 +80,51 @@ export default function SupplierRfqPage(): React.JSX.Element {
   const [revisionReason, setRevisionReason] = useState('');
   const [declineCode, setDeclineCode] = useState('capacity');
   const [declineReason, setDeclineReason] = useState('');
+  const seeded = useRef(false);
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const next = await api<SupplierRfq>(`/supplier/rfqs/${rfqId}`);
+      const first = !seeded.current;
+      seeded.current = true;
       setRfq(next);
+      // Where the prices start from: the live bid (a revision starts from what was sent),
+      // else the saved draft. What the supplier has typed since always wins, so a reload
+      // after a command never zeroes a price on screen (FW W7: a revised bid went out at
+      // ₹0 while the old figures still showed).
+      const live = next.bid?.versions.find((version) => version.status === 'submitted') ?? null;
+      const saved = live ?? (next.bid?.draft.lines ? next.bid.draft : null);
+      const savedLine = (rfqItemId: string, quantity: number) =>
+        saved?.lines?.find((line) => line.rfqItemId === rfqItemId && line.quantity === quantity) ?? null;
       // One priced row per quantity the round asks for: the shape the API validates.
-      setLines(
+      setLines((typed) =>
         next.items.flatMap((item) =>
-          item.quantityBreakpoints.map((breakpoint) => ({
-            rfqItemId: item.rfqItemId,
-            lineNo: item.lineNo,
-            partName: item.partName,
-            quantity: breakpoint.quantity,
-            unit: breakpoint.unit,
-            unitPrice: { amountMinor: 0, currency: next.currency },
-            setupAmount: { amountMinor: 0, currency: next.currency },
-          })),
+          item.quantityBreakpoints.map((breakpoint) => {
+            const mine = typed.find((line) => line.rfqItemId === item.rfqItemId && line.quantity === breakpoint.quantity);
+            const from = savedLine(item.rfqItemId, breakpoint.quantity);
+            return {
+              rfqItemId: item.rfqItemId,
+              lineNo: item.lineNo,
+              partName: item.partName,
+              quantity: breakpoint.quantity,
+              unit: breakpoint.unit,
+              unitPrice: mine && !first ? mine.unitPrice : { amountMinor: from?.unitPriceMinor ?? 0, currency: next.currency },
+              setupAmount: mine && !first ? mine.setupAmount : { amountMinor: from?.setupAmountMinor ?? 0, currency: next.currency },
+            };
+          }),
         ),
       );
+      if (first && saved) {
+        if (saved.freightAmountMinor !== undefined) setFreight({ amountMinor: saved.freightAmountMinor, currency: next.currency });
+        if (saved.nreAmountMinor !== undefined) setNre({ amountMinor: saved.nreAmountMinor, currency: next.currency });
+        if (saved.leadTimeDays !== undefined) setLeadTimeDays(String(saved.leadTimeDays));
+        if (saved.feasibility !== undefined) setFeasibility(saved.feasibility);
+        if (saved.assumptions !== undefined) setAssumptions(saved.assumptions);
+        if (saved.exclusions !== undefined) setExclusions(saved.exclusions);
+        if (saved.paymentTerms !== undefined) setPaymentTerms(saved.paymentTerms);
+        if (saved.validityUntil && saved.validityUntil >= new Date().toISOString().slice(0, 10)) setValidityUntil(saved.validityUntil.slice(0, 10));
+      }
     } catch (err) {
       if (err instanceof ApiError) setError(err);
     }
@@ -414,9 +439,23 @@ export default function SupplierRfqPage(): React.JSX.Element {
                   await api(`/supplier/rfqs/${rfqId}/bid/draft`, {
                     method: 'POST',
                     body: {
+                      // The prices too: a draft that kept only the terms came back at ₹0.
                       draft: {
+                        currency: rfq.currency,
+                        lines: lines.map((line) => ({
+                          rfqItemId: line.rfqItemId,
+                          lineNo: line.lineNo,
+                          quantity: line.quantity,
+                          unit: line.unit,
+                          unitPriceMinor: line.unitPrice.amountMinor,
+                          setupAmountMinor: line.setupAmount.amountMinor,
+                          note: '',
+                        })),
+                        nreAmountMinor: nre.amountMinor,
+                        freightAmountMinor: freight.amountMinor,
                         leadTimeDays: Number(leadTimeDays),
                         validityUntil,
+                        feasibility,
                         assumptions,
                         exclusions,
                         paymentTerms,

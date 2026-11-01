@@ -37,7 +37,7 @@ export { Icon, ICON_NAMES, type IconName, type IconProps } from './primitives/Ic
 export { ErrorSummary, type ErrorSummaryProps } from './primitives/ErrorSummary';
 
 // ---------------------------------------------------------------- layout
-export { AppShell, type AppShellProps, type NavItem } from './layout/AppShell';
+export { AppShell, type AppShellProps, type NavEntry, type NavGroup, type NavItem, isNavGroup } from './layout/AppShell';
 export { Card, Page, type CardProps, type PageProps } from './layout/Page';
 export { TabBar, type TabBarProps, type TabItem, type TabPrimaryAction } from './layout/TabBar';
 export { Hero, type HeroProps } from './layout/Hero';
