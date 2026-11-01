@@ -80,3 +80,95 @@ jobs:
       - run: pnpm lint
       - run: pnpm migrate
       - run: pnpm test
+
+  # FW full portal walk: every screen and command of the operations, customer and supplier
+  # portals, driven in a browser and recorded. The videos (one per portal, and the whole
+  # run with a chapter index) are attached to the check as the portal-walk-videos artifact,
+  # uploaded even when the walk fails so the failure can be watched.
+  portal-walk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: jobwork
+          POSTGRES_PASSWORD: jobwork
+          POSTGRES_DB: jobwork_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jobwork"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://jobwork:jobwork@localhost:5432/jobwork_dev
+      SESSION_SECRET: ci-only-secret
+      SERVICE_TOKEN_SECRET: ci-only-service-secret
+      OBJECT_STORE_ENDPOINT: http://localhost:9000
+      OBJECT_STORE_ACCESS_KEY: minioadmin
+      OBJECT_STORE_SECRET_KEY: minioadmin
+      REDIS_URL: redis://localhost:6379
+      TZ: Asia/Kolkata
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: fresh-start/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: fresh-start/.nvmrc
+          cache: pnpm
+          cache-dependency-path: fresh-start/pnpm-lock.yaml
+      - name: Start the object store
+        # Same pinned image as the verify job (see there for why it is a step).
+        run: |
+          docker run -d --name objects -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46 silo server /data
+          for _ in $(seq 1 60); do
+            curl -fsS http://localhost:9000/minio/health/live && exit 0
+            sleep 1
+          done
+          docker logs objects
+          exit 1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - name: Create the object store buckets
+        # The walk uploads real files (drawings, evidence, photos) through the scan pipeline.
+        env:
+          AWS_ACCESS_KEY_ID: minioadmin
+          AWS_SECRET_ACCESS_KEY: minioadmin
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          aws --endpoint-url http://localhost:9000 s3 mb s3://jobwork-quarantine
+          aws --endpoint-url http://localhost:9000 s3 mb s3://jobwork-clean
+      - name: Install the walk's browser and ffmpeg
+        run: |
+          pnpm --filter @jobwork/e2e exec playwright install --with-deps chromium
+          sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Full portal walk
+        run: pnpm --filter @jobwork/e2e walk
+      - name: Stitch the videos
+        if: always()
+        run: pnpm --filter @jobwork/e2e walk:videos || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-walk-videos
+          path: |
+            fresh-start/e2e/videos/
+            fresh-start/e2e/walk-report/
+            fresh-start/e2e/walk-results/**/trace.zip
+          if-no-files-found: ignore
+          retention-days: 30

@@ -170,6 +170,13 @@ Each confirmed defect becomes a failing walk step first and is fixed on its own 
 | W12 | `CommandButton` | A screen's own check ("Say why…") was labelled UNEXPECTED. | A plain `Error` shows its message without a code. |
 | W13 | Unread notifications | Body and time failed AA contrast. | On-tint muted token. |
 
+**Plan edits (2026-11-01):**
+
+- Captions are two-second title cards that Playwright's browser renders, not ffmpeg `drawtext` (Homebrew's ffmpeg has no freetype). The cards work with any ffmpeg build.
+- The `chapter()` on-screen caption was dropped: the cards name each chapter, and nothing is injected into the page under test, where axe would see it.
+- The CI job creates the two object-store buckets with the runner's AWS CLI, because the walk uploads real files and nothing in the stack creates buckets.
+- `02-customer.mp4` also carries the public chapters.
+
 **Harness lessons** (also in the walk's comments):
 
 - `command()` waits for its own API response; the load state is already reached.

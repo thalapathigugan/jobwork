@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { approvedEnquiry, openRound } from './support/flows';
-import { axe, button, choose, command, expect, field, OPERATIONS, open, PORTAL, recall, remember, signInAs, test, visible } from './support/walk';
+import { axe, button, choose, command, expect, field, OPERATIONS, open, recall, remember, signInAs, test, visible } from './support/walk';
 
 /** FW.10 Console and administration: work queues, held messages, organizations and people, audit, platform health. */
 test.describe.configure({ mode: 'serial' });
