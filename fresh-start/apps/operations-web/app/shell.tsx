@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { OperationsSummary } from '@jobwork/contracts';
 import { AppShell, isNavGroup, LinkProvider, type NavEntry, type NavItem, useCommandTick } from '@jobwork/ui';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 
 /**
  * Operations navigation. The app runs in `compact` density (doc 21 §2, `DS-02`) because
@@ -109,12 +109,20 @@ function OperationsFrame({ environmentLabel, children }: ShellProps): React.JSX.
   // Counts change when someone acts here as well as when they move on (F-12.4).
   const commandTick = useCommandTick();
 
+  const router = useRouter();
+  const unshelled = UNSHELLED.some((path) => pathname?.startsWith(path));
+
   useEffect(() => {
-    // Anonymous, external, or offline: navigation without counts is still correct.
+    // Offline or external: navigation without counts is still correct. Signed out: every
+    // screen is JobWork-only, so go to sign in rather than render "Authentication required"
+    // beside an empty list (FW W15).
     api<OperationsSummary>('/operations/summary')
       .then(setSummary)
-      .catch(() => setSummary(null));
-  }, [pathname, commandTick]);
+      .catch((err: unknown) => {
+        setSummary(null);
+        if (!unshelled && err instanceof ApiError && err.problem.status === 401) router.replace('/login');
+      });
+  }, [pathname, commandTick, unshelled, router]);
 
   // F-10.3: the bell counts this person's unread notifications.
   useEffect(() => {
@@ -132,7 +140,7 @@ function OperationsFrame({ environmentLabel, children }: ShellProps): React.JSX.
     };
   }, [pathname, commandTick]);
 
-  if (UNSHELLED.some((path) => pathname?.startsWith(path))) {
+  if (unshelled) {
     return <main id="main">{children}</main>;
   }
 
