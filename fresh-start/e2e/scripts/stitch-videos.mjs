@@ -7,7 +7,7 @@
 //
 //   node scripts/stitch-videos.mjs
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -26,7 +26,11 @@ const visit = (suite, file) => {
   for (const spec of suite.specs ?? []) {
     for (const t of spec.tests ?? []) {
       const r = t.results?.[0];
-      const video = r?.attachments?.find((a) => a.name === 'video' && a.path && existsSync(a.path));
+      // A test can record several pages: axe opens a blank helper page for every check.
+      // The page under test is the longest recording, so the largest file.
+      const video = (r?.attachments ?? [])
+        .filter((a) => a.name === 'video' && a.path && existsSync(a.path))
+        .sort((a, b) => statSync(b.path).size - statSync(a.path).size)[0];
       if (video) clips.push({ title: spec.title, file: file ?? suite.file, status: r.status, start: Date.parse(r.startTime), duration: r.duration, path: video.path });
     }
   }

@@ -144,15 +144,7 @@ Each confirmed defect becomes a failing walk step first and is fixed on its own 
 
 ## Deviations
 
-**Status (paused by the owner, 2026-10-31).** Chapters 01–11 are written and green against a persistent local stack, run one at a time: 01 public, 02 supplier admission, 03 enquiry to award, 04 quote to payment, 05 production, 06 quality, 07 logistics, 08 changes, 09 settlement and support, 10 console and administration, 11 accounts. The fixes ride in this branch as their own `fix(...)` commits rather than separate `fix/` branches, so the walk's video proves each one.
-
-**Still to do:**
-
-- FW.11 route sweep and access matrix (`12-sweep.spec.ts`).
-- `scripts/stitch-videos.mjs`.
-- The CI `portal-walk` job with the video artifact.
-- One clean full run from a fresh database: since `command()` became strict in chapter 5, chapters 01–04 have not been rerun.
-- The full gate, then the PR.
+**Status (2026-11-01).** All twelve chapters are written. One clean run from a fresh database passed 118 of 118 tests in 10.7 minutes. Stitched, it is 16 minutes of video: the full walk, plus operations, customer and supplier cuts. The fixes ride in this branch as their own `fix(...)` commits rather than separate `fix/` branches, so the walk's video proves each one. The sweep found W14 and W15.
 
 | # | Where | Defect | Fix |
 |---|---|---|---|
@@ -169,13 +161,15 @@ Each confirmed defect becomes a failing walk step first and is fixed on its own 
 | W11 | Supplier shipment plan | With no hub address it returned a 500 from the two-parties check. | Refuse `HUB_MISSING` before inserting. |
 | W12 | `CommandButton` | A screen's own check ("Say why…") was labelled UNEXPECTED. | A plain `Error` shows its message without a code. |
 | W13 | Unread notifications | Body and time failed AA contrast. | On-tint muted token. |
+| W14 | Portal `/welcome` | The page had no heading for assistive technology: the `Hero` headline was a paragraph. | A splash Hero renders its headline as the h1. |
+| W15 | Operations, signed out | Every screen rendered "Authentication required" beside "Nothing waiting", with no way to sign in. | The shell sends a 401 to `/login`. |
 
 **Plan edits (2026-11-01):**
 
 - Captions are two-second title cards that Playwright's browser renders, not ffmpeg `drawtext` (Homebrew's ffmpeg has no freetype). The cards work with any ffmpeg build.
 - The `chapter()` on-screen caption was dropped: the cards name each chapter, and nothing is injected into the page under test, where axe would see it.
 - The CI job creates the two object-store buckets with the runner's AWS CLI, because the walk uploads real files and nothing in the stack creates buckets.
-- `02-customer.mp4` also carries the public chapters.
+- `02-customer.mp4` also carries the public chapters. A test can record several pages, because axe opens a blank helper page for every check, so the stitcher takes the largest recording.
 
 **Harness lessons** (also in the walk's comments):
 
